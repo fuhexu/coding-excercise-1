@@ -39,8 +39,6 @@ public class RefrigeratorTest {
 
 
     }
-
-
     @Test
     public void getTest(){
 

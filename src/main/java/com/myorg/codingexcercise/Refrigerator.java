@@ -1,6 +1,8 @@
 package com.myorg.codingexcercise;
 import java.util.HashMap;
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Comparator;
 /**
  *
  * You are about to build a Refrigerator which has SMALL, MEDIUM, and LARGE sized shelves.
@@ -44,8 +46,8 @@ public class Refrigerator {
     
 
     //we need a structure to track what's being used - retrievable by item id
-    private ArrayList<ArrayList<Shelf>> shelvesUsed; //indices: 0 for small, 1 for medium, 2 for large
-    
+    //private ArrayList<ArrayList<Shelf>> shelvesUsed; //indices: 0 for small, 1 for medium, 2 for large
+    private ArrayList<Shelf> shelvesUsed;
     private HashMap<String, Shelf> itemStorage;
     private HashMap<String, Item> itemLookup;
     /**
@@ -74,21 +76,18 @@ public class Refrigerator {
 
         this.smallShelfCount = smallShelfCount;
         this.smallShelfCuFt = smallShelfCuFt;
-        this.shelvesUsed = new ArrayList<ArrayList<Shelf>>();
-        for(int i = 0; i < 3; i++) {
-        	shelvesUsed.add(new ArrayList<Shelf>());
-        }
+        this.shelvesUsed = new ArrayList<Shelf>();
         for(int i = 0 ; i < smallShelfCount; i++) {
-        	shelvesUsed.get(Refrigerator.S_IND).add(new Shelf(smallShelfCuFt));
+        	shelvesUsed.add(new Shelf(smallShelfCuFt));
         }
         for(int i = 0 ; i < mediumShelfCount; i++) {
-        	shelvesUsed.get(Refrigerator.M_IND).add(new Shelf(mediumShelfCuFt));
+        	shelvesUsed.add(new Shelf(mediumShelfCuFt));
         }
         for(int i = 0 ; i < largeShelfCount; i++) {
-        	shelvesUsed.get(Refrigerator.L_IND).add(new Shelf(largeShelfCuFt));
+        	shelvesUsed.add(new Shelf(largeShelfCuFt));
         }
-        this.itemStorage = new HashMap<String, Shelf>();
-        this.itemLookup = new HashMap<String, Item>();
+        this.itemStorage = new HashMap<String, Shelf>(); //id-to-shelf lookup
+        this.itemLookup = new HashMap<String, Item>(); //id-to-item lookup
 
     }
 
@@ -104,137 +103,75 @@ public class Refrigerator {
      *
      * @param item
      */
+   
     public boolean put(Item item) {
-    	
-    	//check what kind of shelf to put the item on, and check how many of that shelf space are available
+    	/* Shelf Packing Algorithm:
+    	 * 1. Go through every item, sort descending by size
+    	 * 2. Go through every shelf, sort ascending by remaining space
+    	 * 3. For every item, go through shelves ascending until a shelf that can hold the item is found
+    	 * 		a. If the new item could be added, update the item list and shelves
+    	 * 		b. If the new item could not be added, do not update the item list, do not update the shelves
+    	 */
     	boolean result = false;
-    	int itemSize = item.getCubicFt();
-		String itemId = item.getItemId();
-		//rearrange items in shelves depending on input level
-		//put item into smallest available shelf
-    	if (itemSize <= this.smallShelfCuFt) {
-    		for(Shelf s: shelvesUsed.get(Refrigerator.S_IND)) {
-    			if (s.add(item)) {
-            		itemLookup.put(itemId, item);
-            		itemStorage.put(itemId, s);
-            		result = true;
-            		break;
-    			}
-    		}
-    		if (!result) {
-    			for(Shelf s: shelvesUsed.get(Refrigerator.M_IND)) {
-        			if (s.add(item)) {
-                		itemLookup.put(itemId, item);
-                		itemStorage.put(itemId, s);
-                		result = true;
-                		break;
-        			}
-        		}
-    		}
-    		if (!result) {
-    			for(Shelf s: shelvesUsed.get(Refrigerator.L_IND)) {
-        			if (s.add(item)) {
-                		itemLookup.put(itemId, item);
-                		itemStorage.put(itemId, s);
-                		result = true;
-                		break;
-        			}
-        		}
-    		}
+    	if (!itemLookup.containsKey(item.getItemId())) {
+	    	ArrayList<Item> items = new ArrayList<Item>(itemLookup.values());
+	    	Collections.sort(items, new Comparator<Item>() {
+	    		public int compare(Item a1, Item a2) {
+	    			return a2.getCubicFt() - a1.getCubicFt();
+	    		}
+	    	});
+	    	items.add(item);
+	    	//add the newest item last, since we want to see if it fits into a situation where every other item is optimally packed
+	    	ArrayList<Shelf> shelves = new ArrayList<Shelf>();
+	    	for(int n = 0 ; n < smallShelfCount; n++) {
+	    		shelves.add(new Shelf(smallShelfCuFt));
+	        }
+	        for(int n = 0 ; n < mediumShelfCount; n++) {
+	        	shelves.add(new Shelf(mediumShelfCuFt));
+	        }
+	        for(int n = 0 ; n < largeShelfCount; n++) {
+	        	shelves.add(new Shelf(largeShelfCuFt));
+	        }
+	    	Collections.sort(shelves, new Comparator<Shelf>(){
+	    		public int compare(Shelf s1, Shelf s2) {
+	    			int remaining1 = s1.getTotalSpace() - s1.getSpaceStored();
+	    			int remaining2 = s2.getTotalSpace() - s2.getSpaceStored();
+	    			return remaining1 - remaining2;
+	    		}
+	    	});
+	    	
+	    	for(Item iteratedItems: items) {
+	    		Shelf toAdd = null;
+	    		for(Shelf s: shelves) {
+	    			if (s.add(iteratedItems)) {
+	    				toAdd = s;
+	            		break;
+	    			}
+	    		}
+	    		if (toAdd != null) {
+	        		itemStorage.remove(iteratedItems.getItemId());
+            		itemStorage.put(iteratedItems.getItemId(), toAdd);
+            		Collections.sort(shelves, new Comparator<Shelf>(){
+                		public int compare(Shelf s1, Shelf s2) {
+                			int remaining1 = s1.getTotalSpace() - s1.getSpaceStored();
+                			int remaining2 = s2.getTotalSpace() - s2.getSpaceStored();
+                			return remaining1 - remaining2;
+                		}
+                	});
+            		if (!itemLookup.containsKey(iteratedItems.getItemId())) {
+            			itemLookup.put(iteratedItems.getItemId(), iteratedItems);
+            			result = true;
+            		}
+	    		}
+	    	}
+	    	//if we added the item, then we update our sehlves
+	    	if (result) {
+	    		this.shelvesUsed = shelves;
+	    	}
     	}
-    	else if (itemSize <= this.mediumShelfCuFt) {
-    		reArrangeFridge(Refrigerator.M_IND);
-			for(Shelf s: shelvesUsed.get(Refrigerator.M_IND)) {
-    			if (s.add(item)) {
-            		itemLookup.put(itemId, item);
-            		itemStorage.put(itemId, s);
-            		result = true;
-            		break;
-    			}
-    		}
-    		if (!result) {
-    			for(Shelf s: shelvesUsed.get(Refrigerator.L_IND)) {
-        			if (s.add(item)) {
-                		itemLookup.put(itemId, item);
-                		itemStorage.put(itemId, s);
-                		result = true;
-                		break;
-        			}
-        		}
-    		}
-        		
-    	}
-    	else if (itemSize <= this.largeShelfCuFt) {
-    		reArrangeFridge(Refrigerator.L_IND);
-    		for(Shelf s: shelvesUsed.get(Refrigerator.L_IND)) {
-    			if (s.add(item)) {
-            		itemLookup.put(itemId, item);
-            		itemStorage.put(itemId, s);
-            		result = true;
-            		break;
-    			}
-    		}
-    		//try to move items in large down to medium, medium down to small
-    	}
-        return result;
+    	return result;
     }
     
-    public void reArrangeFridge(int level) {
-    	//rearrange the fridge to be more optimal
-    	
-    	//first move mediums to small where applicable
-    	//then move larges to small or medium where applicable
-    	if (level >= Refrigerator.M_IND) {
-    		for(Shelf s: shelvesUsed.get(Refrigerator.M_IND)) {
-    			for(Item i: s.getItemList()) {
-    				if(i.getCubicFt() <  this.smallShelfCuFt ) {
-    					for(Shelf sh: shelvesUsed.get(Refrigerator.S_IND)) {
-    		    			if (sh.add(i)) {
-    		    				s.removeItem(i.getItemId());
-    	    					itemLookup.remove(i.getItemId());
-    	    	        		itemStorage.remove(i.getItemId());
-    		            		itemLookup.put(i.getItemId(), i);
-    		            		itemStorage.put(i.getItemId(), sh);
-    		            		break;
-    		    			}
-    		    		}
-    				}
-    			}
-    		}
-    	}
-    	
-    	if (level >= Refrigerator.L_IND) {
-    		for(Shelf s: shelvesUsed.get(Refrigerator.L_IND)) {
-    			for(Item i: s.getItemList()) {
-    				if(i.getCubicFt() <  this.smallShelfCuFt ) {
-    					for(Shelf sh: shelvesUsed.get(Refrigerator.S_IND)) {
-    		    			if (sh.add(i)) {
-    		    				s.removeItem(i.getItemId());
-    	    					itemLookup.remove(i.getItemId());
-    	    	        		itemStorage.remove(i.getItemId());
-    		            		itemLookup.put(i.getItemId(), i);
-    		            		itemStorage.put(i.getItemId(), sh);
-    		            		break;
-    		    			}
-    		    		}
-    				}
-    				else if (i.getCubicFt() < this.mediumShelfCuFt) {
-    					for(Shelf sh: shelvesUsed.get(Refrigerator.M_IND)) {
-    		    			if (sh.add(i)) {
-    		    				s.removeItem(i.getItemId());
-    	    					itemLookup.remove(i.getItemId());
-    	    	        		itemStorage.remove(i.getItemId());
-    		            		itemLookup.put(i.getItemId(), i);
-    		            		itemStorage.put(i.getItemId(), sh);
-    		            		break;
-    		    			}
-    		    		}
-    				}
-    			}
-    		}
-    	}
-    	
-    }
 
 
     /**
@@ -269,11 +206,9 @@ public class Refrigerator {
      */
     public int getUsedSpace() {
     	int sum = 0;
-    	for(ArrayList<Shelf> shelves : this.shelvesUsed) {
-    		for(Shelf s: shelves) {
-    			sum += s.getSpaceStored();
-    		}
-    	}
+		for(Shelf s: this.shelvesUsed) {
+			sum += s.getSpaceStored();
+		}
     	return sum;
     }
 

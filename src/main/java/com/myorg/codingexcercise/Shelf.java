@@ -46,4 +46,8 @@ public class Shelf {
 	public int getSpaceStored() {
 		return this.spaceStored;
 	}
+	
+	public int getTotalSpace() {
+		return this.space;
+	}
 }
