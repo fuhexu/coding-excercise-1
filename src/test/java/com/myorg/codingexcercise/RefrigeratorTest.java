@@ -11,6 +11,7 @@ public class RefrigeratorTest {
 
     @Test
     public void putTest(){
+
         Refrigerator refrigerator = new Refrigerator(2, 100, 3, 40, 2, 20);
 
         Item largeItem1 = new Item("milk", 80);
@@ -39,6 +40,8 @@ public class RefrigeratorTest {
 
 
     }
+
+
     @Test
     public void getTest(){
 
